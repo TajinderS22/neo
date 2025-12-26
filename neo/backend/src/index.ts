@@ -1,98 +1,138 @@
-import dotenv from 'dotenv'
-import express from "express"
+import dotenv from "dotenv";
+import express from "express";
 import { GoogleGenAI } from "@google/genai";
-import { BASE_PROMPT, getSystemPrompt } from './prompt.js';
-import { reactBasePrompt } from './defaults/react.js';
-import { nodeBasePrompt } from './defaults/node.js';
+import { BASE_PROMPT, getSystemPrompt } from "./prompt.js";
+import { reactBasePrompt } from "./defaults/react.js";
+import { nodeBasePrompt } from "./defaults/node.js";
+import cors from "cors";
 
+dotenv.config();
 
-dotenv.config()
-
-const port =process.env.SERVER_PORT||3000;
-const app=express()
+const port = process.env.SERVER_PORT || 3000;
+const app = express();
 const ai = new GoogleGenAI({});
-app.use(express.json())
 
+app.use(express.json());
+app.use(cors());
 
-const querryMainLLM=async(prompt:string)=>{    
-    // ************to get content block at once************
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `${prompt}`,
-        config:{
-            systemInstruction:await getSystemPrompt(),
-            temperature:0.2
-        }
-      });
-      return response.text;
-    
-    // ******** to get streams *******
-    // async function streamResponse() {
-    //   const model = "gemini-2.5-flash"; // Or another streaming-capable model
-    //   const prompt = "Explain the importance of streaming AI responses in user experience.";
+const querryMainLLM = async (prompt: string) => {
+  // ************to get content block at once************
+  const response = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `${prompt}`,
+    config: {
+      systemInstruction: await getSystemPrompt(),
+      temperature: 0.2,
+    },
+  });
+  return response.text;
 
-    //   try {
-    //     const responseStream = await ai.models.generateContentStream({
-    //       model: model,
-    //       contents: prompt,
-    //     });
+  // ******** to get streams *******
+  // async function streamResponse() {
+  //   const model = "gemini-2.5-flash"; // Or another streaming-capable model
+  //   const prompt = "Explain the importance of streaming AI responses in user experience.";
 
-    //     console.log("Streaming response:");
-    //     // Loop through the stream chunks and print them as they arrive
-    //     for await (const chunk of responseStream) {
-    //       process.stdout.write(chunk.text as any);
-    //     }
-    //     console.log(); // Add a newline at the end
+  //   try {
+  //     const responseStream = await ai.models.generateContentStream({
+  //       model: model,
+  //       contents: prompt,
+  //     });
 
-    //   } catch (error) {
-    //     console.error("An error occurred:", error);
-    //   }
-    // }
-    // streamResponse();
-}
+  //     console.log("Streaming response:");
+  //     // Loop through the stream chunks and print them as they arrive
+  //     for await (const chunk of responseStream) {
+  //       process.stdout.write(chunk.text as any);
+  //     }
+  //     console.log(); // Add a newline at the end
 
-const querryLLM = async (prompt:string) => {
+  //   } catch (error) {
+  //     console.error("An error occurred:", error);
+  //   }
+  // }
+  // streamResponse();
+};
+
+const querryLLM = async (prompt: string) => {
   const response = await ai.models.generateContent({
     model: "gemma-3-27b-it",
     contents: prompt,
   });
-  return response.text;  
+  return response.text;
 };
 
-app.get("/api/template",async(req,res)=>{
-    console.log(req.body)  
-    const prompt=req.body.prompt;
+app.post("/api/template", async (req, res) => {
+  try {
+    const { prompt } = req.body;
 
-    const response = await querryLLM(
-      `give me single word out of {node, react} which is more relevent by examining the the prompt. Prompt:${prompt} `
+    if (!prompt) {
+      return res.status(400).json({ error: "Prompt is required" });
+    }
+
+    const rawResponse = await querryLLM(
+      `Give me a single word out of {node, react}. 
+Only return the word, no explanation.
+Prompt: ${prompt}`
     );
-    if(response=="React"||'react'){
-      res.json({
-        prompts:[BASE_PROMPT, `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${reactBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n` ],
-        uiPrompts: [reactBasePrompt]
-      })
-      return;
-    }
-    if(response=="Node"||"node"){
-      return res.json({
+
+    const result = rawResponse?.trim().toLowerCase();
+
+    console.log("LLM result:", result);
+
+    if (result === "react") {
+      return res.status(200).json({
         prompts: [
-          `Here is an artifact that contains all files of the project visible to you.\nConsider the contents of ALL files in the project.\n\n${nodeBasePrompt}\n\nHere is a list of files that exist on the file system but are not being shown to you:\n\n  - .gitignore\n  - package-lock.json\n`,
+          BASE_PROMPT,
+          `Here is an artifact that contains all files of the project visible to you.
+Consider the contents of ALL files in the project.
+
+${reactBasePrompt}
+
+Here is a list of files that exist on the file system but are not being shown to you:
+
+  - .gitignore
+  - package-lock.json`,
         ],
-        uiPrompts:[nodeBasePrompt]
+        uiPrompts: [reactBasePrompt],
       });
-
     }
-})
 
+    if (result === "node") {
+      return res.status(200).json({
+        prompts: [
+          `Here is an artifact that contains all files of the project visible to you.
+Consider the contents of ALL files in the project.
 
-app.post("/chat",async(req,res)=>{
-  const messages=req.body.messages;
+${nodeBasePrompt}
 
-  const response= querryMainLLM(messages);
-  res.json(response)
+Here is a list of files that exist on the file system but are not being shown to you:
 
-})
+  - .gitignore
+  - package-lock.json`,
+        ],
+        uiPrompts: [nodeBasePrompt],
+      });
+    }
 
-app.listen(port,()=>{
-    console.log(`server is running on port ${port}`)
-}) 
+    // 🔁 fallback if LLM response is unexpected
+    return res.status(400).json({
+      error: "Unable to determine template type",
+      llmResponse: rawResponse,
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+app.post("/chat", async (req, res) => {
+  const messages = req.body.messages;
+
+  console.log(messages);
+
+  const response = querryMainLLM(messages);
+  res.json(response);
+});
+
+app.listen(port, () => {
+  console.log(`server is running on port ${port}`);
+});

@@ -13,26 +13,28 @@ const Navbar = () => {
   })
 
   return (
-    
-    
-      <div className={`${isScrolled?"w-8/12":"w-11/12"} bg-[#e76f51]/30 sticky top-2
-      backdrop-blur-md  mx-auto text-white z-10  mb-6 border border-[#e76f51]  shadow-lg shadow-[#e76f51]/70
-      rounded-md  p-2 easy-in-out transform duration-300 `}>
-        <div className="flex justify-between items-center">
-          <h1 className={"text-2xl font-bold "}>Neo.dev</h1>
-          <div>
-            <ul className="flex text-sm  items-center gap-3">
-              <li>Home</li>
-              <li>Pricing</li>
-              <li>About Us</li>
-              <li className="p-1 rounded-md border border-[#e58f79] bg-[#e58f79]/70 text-[#264653] ">Get started</li>
-            </ul>
-          </div>
+    <div
+      className={`${
+        isScrolled ? "w-8/12" : "w-11/12"
+      } bg-[#5A9CB5]/30 sticky top-2
+      backdrop-blur-md  mx-auto text-white z-10  mb-6 border border-[#5A9CB5]  shadow-lg shadow-[#5A9CB5]/70
+      rounded-md  p-2 easy-in-out transform duration-300 `}
+    >
+      <div className="flex justify-between items-center">
+        <h1 className={"text-2xl font-bold "}>Neo.dev</h1>
+        <div>
+          <ul className="flex text-sm  items-center gap-3">
+            <li>Home</li>
+            <li>Pricing</li>
+            <li>About Us</li>
+            <li className="p-1 rounded-md border border-[#e58f79] bg-[#e58f79]/70 text-[#264653] ">
+              Get started
+            </li>
+          </ul>
         </div>
+      </div>
     </div>
-
-
-  )
+  );
 }
 
 export default Navbar
